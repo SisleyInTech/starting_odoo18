@@ -1,0 +1,49 @@
+
+services:
+  own-odoo18-dev:
+    image: odoo:18.0
+    container_name: own-odoo18-dev
+    restart: unless-stopped
+    ports:
+      - "8049:8069"
+    environment:
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - ADMIN_PASSWD=${ADMIN_PASSWD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - LANG=C.UTF-8
+      - LC_ALL=C.UTF-8
+
+    volumes:
+      - own-odoo18_data:/var/lib/odoo
+      - ${PWD}/../custom:/mnt/extra-addons/custom
+      - ${PWD}/../config:/etc/odoo
+
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        set -e
+        echo 'Waiting for PostgreSQL to be available...'
+        until pg_isready -h "$POSTGRES_HOST" -p "$POSTGRES_PORT"; do
+          echo 'PostgreSQL is not ready. Retrying in 2 seconds...'
+          sleep 2
+        done
+        echo 'PostgreSQL is ready. Starting Odoo...'
+        cp /etc/odoo/odoo-dev.conf /var/lib/odoo/odoo.runtime.conf
+        sed -i '/^admin_passwd\s*=\s*/d' /var/lib/odoo/odoo.runtime.conf
+        echo '' >> /var/lib/odoo/odoo.runtime.conf
+        echo "admin_passwd = $$ADMIN_PASSWD" >> /var/lib/odoo/odoo.runtime.conf
+        exec odoo ${EXEC_ODOO}
+
+    networks:
+      - own_network
+
+volumes:
+  own-odoo18_data:
+
+networks:
+  own_network:
+    name: own_network
